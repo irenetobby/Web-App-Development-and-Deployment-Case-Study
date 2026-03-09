@@ -127,7 +127,7 @@ def create_sample_data():
 
 def load_or_create_data():
     """Load existing data or create sample data"""
-    data_path = Path("data/beer_servings.csv")
+    data_path = Path("data/beer-servings.csv")
     if data_path.exists():
         return pd.read_csv(data_path)
     else:
@@ -544,4 +544,5 @@ def main():
                     'Test R²': f"{results[name]['test_r2']:.4f}",
                     'CV R² (mean)': f"{results[name]['cv_mean']:.4f}",
                     'CV R² (std)': f"{results[name]['cv_std']:.4f}",
+
                 })
