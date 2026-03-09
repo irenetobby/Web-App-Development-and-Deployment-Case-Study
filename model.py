@@ -27,7 +27,7 @@ print(df.head())
 print("\nMissing values:")
 print(df.isnull().sum())
 
-# ===== ADD THIS SECTION: Handle missing values in ALL columns =====
+# ===== HANDLE MISSING VALUES IN ALL COLUMNS =====
 print("\n" + "="*60)
 print("HANDLING MISSING VALUES")
 print("="*60)
@@ -40,18 +40,24 @@ for col in numerical_cols:
         df[col].fillna(median_val, inplace=True)
         print(f"Filled {df[col].isnull().sum()} missing values in {col} with median: {median_val}")
 
-# Handle categorical columns - fill with 'Unknown' or most frequent
+# Handle categorical columns - fill with 'Unknown' 
 categorical_cols = ['country', 'continent']
 for col in categorical_cols:
     if df[col].isnull().sum() > 0:
-        # Option 1: Fill with 'Unknown'
         df[col].fillna('Unknown', inplace=True)
         print(f"Filled {df[col].isnull().sum()} missing values in {col} with 'Unknown'")
-        
-        # Option 2: Fill with most frequent value (uncomment to use instead)
-        # most_frequent = df[col].mode()[0]
-        # df[col].fillna(most_frequent, inplace=True)
-        # print(f"Filled missing values in {col} with most frequent: {most_frequent}")
+
+# ===== CRITICAL FIX: Handle missing values in target variable =====
+target_col = 'total_litres_of_pure_alcohol'
+if df[target_col].isnull().sum() > 0:
+    # Option 1: Fill with median (recommended for regression)
+    median_val = df[target_col].median()
+    df[target_col].fillna(median_val, inplace=True)
+    print(f"Filled {df[target_col].isnull().sum()} missing values in target '{target_col}' with median: {median_val}")
+    
+    # Option 2: Drop rows with missing target (uncomment to use instead)
+    # df = df.dropna(subset=[target_col])
+    # print(f"Dropped rows with missing target values. New shape: {df.shape}")
 
 print("\nMissing values after handling:")
 print(df.isnull().sum())
@@ -60,6 +66,9 @@ print(df.isnull().sum())
 # Prepare features and target
 X = df.drop('total_litres_of_pure_alcohol', axis=1)
 y = df['total_litres_of_pure_alcohol']
+
+# Double-check that y has no missing values
+print(f"\nTarget variable missing values: {y.isnull().sum()}")
 
 # Identify categorical and numerical columns
 categorical_cols = ['country', 'continent']
@@ -269,5 +278,6 @@ if best_model_name in ['Random Forest', 'Gradient Boosting']:
         print(f"Could not extract feature importances: {e}")
 
 print("\nModel training completed successfully!")
+
 
 
