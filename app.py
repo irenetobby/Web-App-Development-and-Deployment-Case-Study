@@ -22,7 +22,7 @@ def load_model():
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv('data/beer-servings.csv')
+    df = pd.read_csv('data/beer_servings.csv')
     return df
 
 # Load resources
@@ -30,9 +30,15 @@ try:
     model = load_model()
     df = load_data()
     model_loaded = True
-except:
+    data_loaded = True
+except FileNotFoundError as e:
     model_loaded = False
-    st.error("Failed to load model or data. Please check the files.")
+    data_loaded = False
+    st.error(f"Failed to load files: {str(e)}. Please check that model and data files exist.")
+except Exception as e:
+    model_loaded = False
+    data_loaded = False
+    st.error(f"An error occurred: {str(e)}")
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
@@ -40,83 +46,86 @@ page = st.sidebar.radio("Go to", ["📊 Data Visualization", "🔮 Prediction", 
 
 # Main content
 if page == "📊 Data Visualization":
-    st.title("🍺 Alcohol Consumption Data Explorer")
-    st.markdown("---")
-    
-    # Overview statistics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Countries", len(df['country'].unique()))
-    with col2:
-        st.metric("Avg Total Alcohol", f"{df['total_litres_of_pure_alcohol'].mean():.2f} L")
-    with col3:
-        st.metric("Max Alcohol Consumption", f"{df['total_litres_of_pure_alcohol'].max():.2f} L")
-    with col4:
-        st.metric("Continents", len(df['continent'].unique()))
-    
-    st.markdown("---")
-    
-    # Create two columns for charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🌍 Alcohol Consumption by Continent")
-        continent_avg = df.groupby('continent')['total_litres_of_pure_alcohol'].mean().reset_index()
-        fig1 = px.bar(continent_avg, x='continent', y='total_litres_of_pure_alcohol',
-                     color='continent', title='Average Alcohol Consumption by Continent',
-                     labels={'total_litres_of_pure_alcohol': 'Average Liters', 'continent': 'Continent'})
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        st.subheader("🍷 Types of Alcohol Consumption")
-        # Melt the dataframe for the three types
-        alcohol_types = df[['beer_servings', 'spirit_servings', 'wine_servings']].melt()
-        alcohol_types.columns = ['Type', 'Servings']
-        fig2 = px.box(alcohol_types, x='Type', y='Servings', color='Type',
-                     title='Distribution of Different Alcohol Types',
-                     labels={'Servings': 'Number of Servings', 'Type': 'Alcohol Type'})
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Second row
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🗺️ Top 20 Countries by Alcohol Consumption")
-        top_countries = df.nlargest(20, 'total_litres_of_pure_alcohol')[['country', 'total_litres_of_pure_alcohol']]
-        fig3 = px.bar(top_countries, x='total_litres_of_pure_alcohol', y='country',
-                     orientation='h', title='Top 20 Countries by Total Alcohol Consumption',
-                     labels={'total_litres_of_pure_alcohol': 'Total Liters', 'country': ''},
-                     color='total_litres_of_pure_alcohol', color_continuous_scale='Viridis')
-        st.plotly_chart(fig3, use_container_width=True)
-    
-    with col2:
-        st.subheader("📊 Correlation Heatmap")
-        # Calculate correlations
-        corr_df = df[['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol']].corr()
-        fig4 = px.imshow(corr_df, text_auto=True, aspect="auto",
-                        title="Correlation Matrix of Alcohol Variables",
-                        color_continuous_scale='RdBu_r')
-        st.plotly_chart(fig4, use_container_width=True)
-    
-    # Scatter plot matrix
-    st.subheader("🔍 Relationships Between Variables")
-    fig5 = px.scatter_matrix(df, dimensions=['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol'],
-                            color='continent', title='Scatter Plot Matrix',
-                            labels={col: col.replace('_', ' ').title() for col in df.columns})
-    fig5.update_traces(diagonal_visible=False)
-    st.plotly_chart(fig5, use_container_width=True)
-    
-    # Show raw data
-    st.subheader("📋 Raw Data")
-    if st.checkbox("Show raw data"):
-        st.dataframe(df, use_container_width=True)
+    if not data_loaded:
+        st.error("Data not loaded. Please check the data file.")
+    else:
+        st.title("🍺 Alcohol Consumption Data Explorer")
+        st.markdown("---")
+        
+        # Overview statistics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Countries", len(df['country'].unique()))
+        with col2:
+            st.metric("Avg Total Alcohol", f"{df['total_litres_of_pure_alcohol'].mean():.2f} L")
+        with col3:
+            st.metric("Max Alcohol Consumption", f"{df['total_litres_of_pure_alcohol'].max():.2f} L")
+        with col4:
+            st.metric("Continents", len(df['continent'].unique()))
+        
+        st.markdown("---")
+        
+        # Create two columns for charts
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("🌍 Alcohol Consumption by Continent")
+            continent_avg = df.groupby('continent')['total_litres_of_pure_alcohol'].mean().reset_index()
+            fig1 = px.bar(continent_avg, x='continent', y='total_litres_of_pure_alcohol',
+                         color='continent', title='Average Alcohol Consumption by Continent',
+                         labels={'total_litres_of_pure_alcohol': 'Average Liters', 'continent': 'Continent'})
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            st.subheader("🍷 Types of Alcohol Consumption")
+            # Melt the dataframe for the three types
+            alcohol_types = df[['beer_servings', 'spirit_servings', 'wine_servings']].melt()
+            alcohol_types.columns = ['Type', 'Servings']
+            fig2 = px.box(alcohol_types, x='Type', y='Servings', color='Type',
+                         title='Distribution of Different Alcohol Types',
+                         labels={'Servings': 'Number of Servings', 'Type': 'Alcohol Type'})
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        # Second row
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("🗺️ Top 20 Countries by Alcohol Consumption")
+            top_countries = df.nlargest(20, 'total_litres_of_pure_alcohol')[['country', 'total_litres_of_pure_alcohol']]
+            fig3 = px.bar(top_countries, x='total_litres_of_pure_alcohol', y='country',
+                         orientation='h', title='Top 20 Countries by Total Alcohol Consumption',
+                         labels={'total_litres_of_pure_alcohol': 'Total Liters', 'country': ''},
+                         color='total_litres_of_pure_alcohol', color_continuous_scale='Viridis')
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        with col2:
+            st.subheader("📊 Correlation Heatmap")
+            # Calculate correlations
+            corr_df = df[['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol']].corr()
+            fig4 = px.imshow(corr_df, text_auto=True, aspect="auto",
+                            title="Correlation Matrix of Alcohol Variables",
+                            color_continuous_scale='RdBu_r')
+            st.plotly_chart(fig4, use_container_width=True)
+        
+        # Scatter plot matrix
+        st.subheader("🔍 Relationships Between Variables")
+        fig5 = px.scatter_matrix(df, dimensions=['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol'],
+                                color='continent', title='Scatter Plot Matrix',
+                                labels={col: col.replace('_', ' ').title() for col in df.columns})
+        fig5.update_traces(diagonal_visible=False)
+        st.plotly_chart(fig5, use_container_width=True)
+        
+        # Show raw data
+        st.subheader("📋 Raw Data")
+        if st.checkbox("Show raw data"):
+            st.dataframe(df, use_container_width=True)
 
 elif page == "🔮 Prediction":
     st.title("🔮 Alcohol Consumption Predictor")
     st.markdown("---")
     
-    if not model_loaded:
-        st.error("Model not loaded. Please check the model file.")
+    if not model_loaded or not data_loaded:
+        st.error("Model or data not loaded. Please check the files.")
     else:
         st.markdown("### Enter the details below to predict total alcohol consumption:")
         
@@ -241,8 +250,10 @@ elif page == "📈 Model Performance":
                      orientation='h', title='Top 15 Feature Importances',
                      labels={'importance': 'Importance Score', 'feature': ''})
         st.plotly_chart(fig, use_container_width=True)
-    except:
+    except FileNotFoundError:
         st.info("Feature importance data not available for this model.")
+    except Exception as e:
+        st.info(f"Could not load feature importance: {str(e)}")
     
     st.markdown("---")
     
@@ -269,5 +280,5 @@ st.markdown("""
 <div style='text-align: center'>
     <p>🍺 Alcohol Consumption Predictor | Developed with Streamlit</p>
 </div>
-
 """, unsafe_allow_html=True)
+
