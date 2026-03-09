@@ -7,12 +7,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.impute import SimpleImputer
 import joblib
 import warnings
 warnings.filterwarnings('ignore')
 
 import os
-import pandas as pd
 
 BASE_DIR = os.path.dirname(__file__)
 file_path = os.path.join(BASE_DIR, "data", "beer-servings.csv")
@@ -27,6 +27,36 @@ print(df.head())
 print("\nMissing values:")
 print(df.isnull().sum())
 
+# ===== ADD THIS SECTION: Handle missing values in ALL columns =====
+print("\n" + "="*60)
+print("HANDLING MISSING VALUES")
+print("="*60)
+
+# Handle numerical columns - fill with median
+numerical_cols = ['beer_servings', 'spirit_servings', 'wine_servings']
+for col in numerical_cols:
+    if df[col].isnull().sum() > 0:
+        median_val = df[col].median()
+        df[col].fillna(median_val, inplace=True)
+        print(f"Filled {df[col].isnull().sum()} missing values in {col} with median: {median_val}")
+
+# Handle categorical columns - fill with 'Unknown' or most frequent
+categorical_cols = ['country', 'continent']
+for col in categorical_cols:
+    if df[col].isnull().sum() > 0:
+        # Option 1: Fill with 'Unknown'
+        df[col].fillna('Unknown', inplace=True)
+        print(f"Filled {df[col].isnull().sum()} missing values in {col} with 'Unknown'")
+        
+        # Option 2: Fill with most frequent value (uncomment to use instead)
+        # most_frequent = df[col].mode()[0]
+        # df[col].fillna(most_frequent, inplace=True)
+        # print(f"Filled missing values in {col} with most frequent: {most_frequent}")
+
+print("\nMissing values after handling:")
+print(df.isnull().sum())
+# ==============================================================
+
 # Prepare features and target
 X = df.drop('total_litres_of_pure_alcohol', axis=1)
 y = df['total_litres_of_pure_alcohol']
@@ -35,11 +65,21 @@ y = df['total_litres_of_pure_alcohol']
 categorical_cols = ['country', 'continent']
 numerical_cols = ['beer_servings', 'spirit_servings', 'wine_servings']
 
-# Create preprocessor
+# Create preprocessor with imputation for safety
+numerical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median')),  # Extra safety for numerical
+    ('scaler', StandardScaler())
+])
+
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='constant', fill_value='Unknown')),  # Extra safety for categorical
+    ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+])
+
 preprocessor = ColumnTransformer(
     transformers=[
-        ('num', StandardScaler(), numerical_cols),
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+        ('num', numerical_transformer, numerical_cols),
+        ('cat', categorical_transformer, categorical_cols)
     ])
 
 # Split the data
@@ -191,6 +231,9 @@ print(summary_df)
 print(f"\nBest Model: {best_model_name}")
 print(f"Best Test R2 Score: {best_score:.4f}")
 
+# Create models directory if it doesn't exist
+os.makedirs('models', exist_ok=True)
+
 # Save the best model
 joblib.dump(best_model, 'models/best_model.pkl')
 print(f"\nBest model saved to 'models/best_model.pkl'")
@@ -205,6 +248,7 @@ if best_model_name in ['Random Forest', 'Gradient Boosting']:
         feature_names = (numerical_cols + 
                         list(best_model.named_steps['preprocessor']
                              .named_transformers_['cat']
+                             .named_steps['onehot']
                              .get_feature_names_out(categorical_cols)))
         
         # Get feature importances
@@ -221,8 +265,9 @@ if best_model_name in ['Random Forest', 'Gradient Boosting']:
         
         # Save feature importances
         feat_imp.to_csv('models/feature_importances.csv', index=False)
-    except:
-        print("Could not extract feature importances")
+    except Exception as e:
+        print(f"Could not extract feature importances: {e}")
 
 print("\nModel training completed successfully!")
+
 
