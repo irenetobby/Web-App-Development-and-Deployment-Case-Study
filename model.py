@@ -11,8 +11,13 @@ import joblib
 import warnings
 warnings.filterwarnings('ignore')
 
-# Load data
-df = pd.read_csv('data/beer_servings.csv')
+import os
+import pandas as pd
+
+BASE_DIR = os.path.dirname(__file__)
+file_path = os.path.join(BASE_DIR, "data", "beer_servings.csv")
+
+df = pd.read_csv(file_path)
 
 # Display basic info
 print("Dataset Info:")
