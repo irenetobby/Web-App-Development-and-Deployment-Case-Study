@@ -70,6 +70,8 @@ if 'model_results' not in st.session_state:
     st.session_state.model_results = {}
 if 'df' not in st.session_state:
     st.session_state.df = None
+if 'best_model_name' not in st.session_state:
+    st.session_state.best_model_name = None
 
 # Create data directory if it doesn't exist
 Path("data").mkdir(exist_ok=True)
@@ -125,9 +127,10 @@ def create_sample_data():
     }
     return pd.DataFrame(data)
 
+@st.cache_data
 def load_or_create_data():
     """Load existing data or create sample data"""
-    data_path = Path("data/beer-servings.csv")
+    data_path = Path("data/beer_servings.csv")
     if data_path.exists():
         return pd.read_csv(data_path)
     else:
@@ -289,7 +292,7 @@ def main():
             "based on beer, spirit, and wine servings per country."
         )
     
-    # Load data
+    # Load data (this happens before any page rendering)
     if st.session_state.df is None:
         with st.spinner("Loading data..."):
             st.session_state.df = load_or_create_data()
@@ -300,7 +303,7 @@ def main():
     if page == "📊 Data Explorer":
         st.header("📊 Data Exploration")
         
-        # Quick stats
+        # Quick stats - NOW df is definitely defined
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Countries", len(df['country'].unique()))
@@ -311,6 +314,7 @@ def main():
         with col4:
             st.metric("Max Alcohol (L)", f"{df['total_litres_of_pure_alcohol'].max():.2f}")
         
+        # Rest of your visualizations...
         # Visualizations
         tab1, tab2, tab3 = st.tabs(["Distribution", "By Continent", "Correlations"])
         
@@ -544,5 +548,10 @@ def main():
                     'Test R²': f"{results[name]['test_r2']:.4f}",
                     'CV R² (mean)': f"{results[name]['cv_mean']:.4f}",
                     'CV R² (std)': f"{results[name]['cv_std']:.4f}",
-
                 })
+            metrics_df = pd.DataFrame(metrics_data)
+            st.dataframe(metrics_df, use_container_width=True)
+
+if __name__ == "__main__":
+    main()
+
