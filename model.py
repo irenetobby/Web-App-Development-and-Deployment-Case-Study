@@ -15,7 +15,7 @@ import os
 import pandas as pd
 
 BASE_DIR = os.path.dirname(__file__)
-file_path = os.path.join(BASE_DIR, "data", "beer_servings.csv")
+file_path = os.path.join(BASE_DIR, "data", "beer-servings.csv")
 
 df = pd.read_csv(file_path)
 
@@ -225,3 +225,4 @@ if best_model_name in ['Random Forest', 'Gradient Boosting']:
         print("Could not extract feature importances")
 
 print("\nModel training completed successfully!")
+
