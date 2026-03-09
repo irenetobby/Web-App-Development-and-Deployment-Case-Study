@@ -15,6 +15,12 @@ st.set_page_config(
     layout="wide"
 )
 
+# Initialize variables
+model = None
+df = None
+model_loaded = False
+data_loaded = False
+
 # Load model and data
 @st.cache_resource
 def load_model():
@@ -25,20 +31,22 @@ def load_data():
     df = pd.read_csv('data/beer_servings.csv')
     return df
 
-# Load resources
+# Load resources with error handling
 try:
     model = load_model()
-    df = load_data()
     model_loaded = True
-    data_loaded = True
-except FileNotFoundError as e:
-    model_loaded = False
-    data_loaded = False
-    st.error(f"Failed to load files: {str(e)}. Please check that model and data files exist.")
+except FileNotFoundError:
+    st.error("Model file not found. Please ensure 'models/best_model.pkl' exists.")
 except Exception as e:
-    model_loaded = False
-    data_loaded = False
-    st.error(f"An error occurred: {str(e)}")
+    st.error(f"Error loading model: {str(e)}")
+
+try:
+    df = load_data()
+    data_loaded = True
+except FileNotFoundError:
+    st.error("Data file not found. Please ensure 'data/beer_servings.csv' exists.")
+except Exception as e:
+    st.error(f"Error loading data: {str(e)}")
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
@@ -47,7 +55,7 @@ page = st.sidebar.radio("Go to", ["📊 Data Visualization", "🔮 Prediction", 
 # Main content
 if page == "📊 Data Visualization":
     if not data_loaded:
-        st.error("Data not loaded. Please check the data file.")
+        st.error("⚠️ Data not loaded. Please check the data file and refresh the page.")
     else:
         st.title("🍺 Alcohol Consumption Data Explorer")
         st.markdown("---")
@@ -125,7 +133,12 @@ elif page == "🔮 Prediction":
     st.markdown("---")
     
     if not model_loaded or not data_loaded:
-        st.error("Model or data not loaded. Please check the files.")
+        missing = []
+        if not model_loaded:
+            missing.append("model")
+        if not data_loaded:
+            missing.append("data")
+        st.error(f"⚠️ {' and '.join(missing)} not loaded. Please check the files and refresh the page.")
     else:
         st.markdown("### Enter the details below to predict total alcohol consumption:")
         
@@ -281,4 +294,6 @@ st.markdown("""
     <p>🍺 Alcohol Consumption Predictor | Developed with Streamlit</p>
 </div>
 """, unsafe_allow_html=True)
+
+
 
