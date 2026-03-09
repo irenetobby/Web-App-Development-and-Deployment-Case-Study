@@ -1,0 +1,106 @@
+"""
+Script to create and save model.pkl
+Run: python create_model.py
+"""
+
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import joblib
+import os
+
+# Create models directory if it doesn't exist
+os.makedirs('models', exist_ok=True)
+
+print("=" * 60)
+print("CREATING MODEL.PKL FILE")
+print("=" * 60)
+
+# Create sample dataset
+print("\n📁 Creating sample dataset...")
+data = {
+    'country': ['USA', 'Canada', 'UK', 'France', 'Germany', 'Japan', 'Brazil', 'Australia', 
+                'Mexico', 'India', 'China', 'South Africa', 'Italy', 'Spain', 'Russia'],
+    'beer_servings': [249, 240, 219, 277, 346, 202, 245, 261, 238, 9, 79, 225, 185, 284, 247],
+    'spirit_servings': [158, 122, 126, 81, 117, 202, 145, 72, 115, 4, 192, 78, 42, 157, 326],
+    'wine_servings': [84, 100, 205, 370, 175, 16, 16, 212, 28, 0, 8, 81, 238, 212, 79],
+    'continent': ['Americas', 'Americas', 'Europe', 'Europe', 'Europe', 'Asia', 'Americas', 
+                  'Oceania', 'Americas', 'Asia', 'Asia', 'Africa', 'Europe', 'Europe', 'Europe'],
+    'total_litres_of_pure_alcohol': [8.7, 8.9, 10.4, 11.8, 11.3, 7.0, 7.2, 9.3, 5.5, 0.3, 
+                                     4.4, 6.4, 7.7, 10.0, 11.5]
+}
+
+df = pd.DataFrame(data)
+print(f"✅ Dataset created with {len(df)} rows")
+print(f"📊 Columns: {list(df.columns)}")
+
+# Prepare features and target
+X = df.drop('total_litres_of_pure_alcohol', axis=1)
+y = df['total_litres_of_pure_alcohol']
+
+print("\n🔄 Creating preprocessing pipeline...")
+
+# Define column types
+categorical_cols = ['country', 'continent']
+numerical_cols = ['beer_servings', 'spirit_servings', 'wine_servings']
+
+# Create preprocessor
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numerical_cols),
+        ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_cols)
+    ])
+
+# Create and train model
+print("🔄 Training Random Forest model...")
+model = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=10,
+    random_state=42,
+    n_jobs=-1
+)
+
+# Create pipeline
+pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('regressor', model)
+])
+
+# Train the model
+pipeline.fit(X, y)
+print("✅ Model training complete!")
+
+# Test the model with a sample prediction
+print("\n🔮 Testing model with sample input...")
+test_data = pd.DataFrame({
+    'country': ['USA'],
+    'beer_servings': [250],
+    'spirit_servings': [150],
+    'wine_servings': [100],
+    'continent': ['Americas']
+})
+
+prediction = pipeline.predict(test_data)[0]
+print(f"   Sample input: Beer=250, Spirit=150, Wine=100, Country=USA, Continent=Americas")
+print(f"   Predicted alcohol consumption: {prediction:.2f} Liters")
+
+# Save the model
+model_path = 'models/model.pkl'
+joblib.dump(pipeline, model_path)
+print(f"\n💾 Model saved to: {os.path.abspath(model_path)}")
+
+# Also save as best_model.pkl for compatibility
+best_model_path = 'models/best_model.pkl'
+joblib.dump(pipeline, best_model_path)
+print(f"💾 Model also saved to: {os.path.abspath(best_model_path)}")
+
+# Check file size
+file_size = os.path.getsize(model_path) / (1024 * 1024)  # Convert to MB
+print(f"📦 Model file size: {file_size:.2f} MB")
+
+print("\n" + "=" * 60)
+print("✅ MODEL.PKL CREATED SUCCESSFULLY!")
+print("=" * 60)
