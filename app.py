@@ -22,7 +22,7 @@ def load_model():
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv('data/beer_servings.csv')
+    df = pd.read_csv('data/beer-servings.csv')
     return df
 
 # Load resources
@@ -269,4 +269,5 @@ st.markdown("""
 <div style='text-align: center'>
     <p>🍺 Alcohol Consumption Predictor | Developed with Streamlit</p>
 </div>
+
 """, unsafe_allow_html=True)
