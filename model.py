@@ -1,3 +1,8 @@
+"""
+Model training script for alcohol consumption prediction
+FINAL VERSION - Ready for deployment
+"""
+
 import sys
 import os
 import pandas as pd
@@ -29,10 +34,10 @@ print("\n" + "="*60)
 print("📂 LOCATING DATA FILE")
 print("="*60)
 
-# Look for the actual data file (from logs, it's beer-servings.csv)
+# Look for the data file in common locations
 data_path = None
 possible_files = [
-    'data/beer-servings.csv',  # This is the actual file from your logs
+    'data/beer-servings.csv',  # From your logs
     'data/drinks.csv',
     'beer-servings.csv',
     'drinks.csv',
@@ -102,27 +107,30 @@ print("\n" + "="*60)
 print("🎯 IDENTIFYING TARGET COLUMN")
 print("="*60)
 
-# Look for alcohol-related columns
-alcohol_keywords = ['alcohol', 'total_litres', 'litres', 'pure_alcohol', 'servings']
-target_candidates = []
-
-for col in df.columns:
-    col_lower = col.lower()
-    for keyword in alcohol_keywords:
-        if keyword in col_lower:
-            target_candidates.append(col)
+# Based on the dataset, we know the target is total_litres_of_pure_alcohol
+# But let's make it robust
+target_col = None
+if 'total_litres_of_pure_alcohol' in df.columns:
+    target_col = 'total_litres_of_pure_alcohol'
+    print(f"✅ Found target column: {target_col}")
+else:
+    # Look for alcohol-related columns
+    alcohol_keywords = ['alcohol', 'total_litres', 'litres', 'pure_alcohol']
+    for col in df.columns:
+        col_lower = col.lower()
+        for keyword in alcohol_keywords:
+            if keyword in col_lower:
+                target_col = col
+                print(f"✅ Found target column: {target_col}")
+                break
+        if target_col:
             break
 
-if target_candidates:
-    target_col = target_candidates[0]
-    print(f"✅ Found target column: {target_col}")
-    if len(target_candidates) > 1:
-        print(f"   (Also found: {target_candidates[1:]})")
-else:
-    # If no obvious target column, look for float columns
+if target_col is None:
+    # If no obvious target column, use the last float column
     float_cols = df.select_dtypes(include=['float64']).columns.tolist()
     if float_cols:
-        target_col = float_cols[-1]  # Assume last float column is target
+        target_col = float_cols[-1]
         print(f"⚠️ Using {target_col} as target column")
     else:
         print(f"❌ Could not identify target column!")
@@ -151,7 +159,7 @@ print("="*60)
 print(f"\nMissing values before cleaning:")
 print(df[feature_cols + [target_col]].isnull().sum())
 
-# Drop rows with missing target values
+# Drop rows with missing target values (CRITICAL STEP)
 initial_rows = len(df)
 df = df.dropna(subset=[target_col])
 rows_dropped = initial_rows - len(df)
@@ -168,6 +176,11 @@ for col in feature_cols:
 
 print(f"\nMissing values after cleaning:")
 print(df[feature_cols + [target_col]].isnull().sum())
+
+# Final check - ensure no NaN values remain
+if df[target_col].isnull().sum() > 0:
+    print(f"❌ Target column still has NaN values! This should not happen.")
+    sys.exit(1)
 
 # =============================================================================
 # PREPARE DATA FOR MODELING
