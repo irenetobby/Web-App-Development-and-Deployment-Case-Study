@@ -1,12 +1,11 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Page configuration
 st.set_page_config(
@@ -15,213 +14,102 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize variables
-model = None
-df = None
+# Title and description
+st.title("🍺 Alcohol Consumption Prediction App")
+st.markdown("""
+This app predicts **total alcohol consumption** based on different types of alcohol servings.
+Enter the values below to get a prediction!
+""")
+
+# Check if model exists
+model_path = 'models/best_model.pkl'
 model_loaded = False
-data_loaded = False
 
-# Load model and data
-@st.cache_resource
-def load_model():
-    return joblib.load('models/best_model.pkl')
-
-@st.cache_data
-def load_data():
-    df = pd.read_csv('data/beer_servings.csv')
-    return df
-
-# Load resources with error handling
-try:
-    model = load_model()
-    model_loaded = True
-except FileNotFoundError:
-    st.error("Model file not found. Please ensure 'models/best_model.pkl' exists.")
-except Exception as e:
-    st.error(f"Error loading model: {str(e)}")
-
-try:
-    df = load_data()
-    data_loaded = True
-except FileNotFoundError:
-    st.error("Data file not found. Please ensure 'data/beer_servings.csv' exists.")
-except Exception as e:
-    st.error(f"Error loading data: {str(e)}")
-
-# Sidebar for navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["📊 Data Visualization", "🔮 Prediction", "📈 Model Performance"])
-
-# Main content
-if page == "📊 Data Visualization":
-    if not data_loaded:
-        st.error("⚠️ Data not loaded. Please check the data file and refresh the page.")
-    else:
-        st.title("🍺 Alcohol Consumption Data Explorer")
-        st.markdown("---")
+if os.path.exists(model_path):
+    try:
+        model_data = joblib.load(model_path)
+        model = model_data['model']
+        scaler = model_data.get('scaler')
+        features = model_data.get('features', [])
+        model_name = model_data.get('name', 'Unknown')
+        model_score = model_data.get('score', 0)
+        model_loaded = True
         
-        # Overview statistics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Countries", len(df['country'].unique()))
-        with col2:
-            st.metric("Avg Total Alcohol", f"{df['total_litres_of_pure_alcohol'].mean():.2f} L")
-        with col3:
-            st.metric("Max Alcohol Consumption", f"{df['total_litres_of_pure_alcohol'].max():.2f} L")
-        with col4:
-            st.metric("Continents", len(df['continent'].unique()))
+        st.sidebar.success(f"✅ Model loaded: {model_name}")
+        st.sidebar.info(f"Model R² Score: {model_score:.4f}")
+    except Exception as e:
+        st.sidebar.error(f"❌ Error loading model: {e}")
+else:
+    st.sidebar.warning("⚠️ No trained model found. Please run model.py first.")
+
+# Create tabs
+tab1, tab2, tab3 = st.tabs(["📊 Predictor", "📈 Data Explorer", "ℹ️ About"])
+
+with tab1:
+    if model_loaded and features:
+        st.header("Enter Input Values")
         
-        st.markdown("---")
-        
-        # Create two columns for charts
+        # Create two columns for input
         col1, col2 = st.columns(2)
         
-        with col1:
-            st.subheader("🌍 Alcohol Consumption by Continent")
-            continent_avg = df.groupby('continent')['total_litres_of_pure_alcohol'].mean().reset_index()
-            fig1 = px.bar(continent_avg, x='continent', y='total_litres_of_pure_alcohol',
-                         color='continent', title='Average Alcohol Consumption by Continent',
-                         labels={'total_litres_of_pure_alcohol': 'Average Liters', 'continent': 'Continent'})
-            st.plotly_chart(fig1, use_container_width=True)
+        input_values = {}
         
-        with col2:
-            st.subheader("🍷 Types of Alcohol Consumption")
-            # Melt the dataframe for the three types
-            alcohol_types = df[['beer_servings', 'spirit_servings', 'wine_servings']].melt()
-            alcohol_types.columns = ['Type', 'Servings']
-            fig2 = px.box(alcohol_types, x='Type', y='Servings', color='Type',
-                         title='Distribution of Different Alcohol Types',
-                         labels={'Servings': 'Number of Servings', 'Type': 'Alcohol Type'})
-            st.plotly_chart(fig2, use_container_width=True)
-        
-        # Second row
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("🗺️ Top 20 Countries by Alcohol Consumption")
-            top_countries = df.nlargest(20, 'total_litres_of_pure_alcohol')[['country', 'total_litres_of_pure_alcohol']]
-            fig3 = px.bar(top_countries, x='total_litres_of_pure_alcohol', y='country',
-                         orientation='h', title='Top 20 Countries by Total Alcohol Consumption',
-                         labels={'total_litres_of_pure_alcohol': 'Total Liters', 'country': ''},
-                         color='total_litres_of_pure_alcohol', color_continuous_scale='Viridis')
-            st.plotly_chart(fig3, use_container_width=True)
-        
-        with col2:
-            st.subheader("📊 Correlation Heatmap")
-            # Calculate correlations
-            corr_df = df[['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol']].corr()
-            fig4 = px.imshow(corr_df, text_auto=True, aspect="auto",
-                            title="Correlation Matrix of Alcohol Variables",
-                            color_continuous_scale='RdBu_r')
-            st.plotly_chart(fig4, use_container_width=True)
-        
-        # Scatter plot matrix
-        st.subheader("🔍 Relationships Between Variables")
-        fig5 = px.scatter_matrix(df, dimensions=['beer_servings', 'spirit_servings', 'wine_servings', 'total_litres_of_pure_alcohol'],
-                                color='continent', title='Scatter Plot Matrix',
-                                labels={col: col.replace('_', ' ').title() for col in df.columns})
-        fig5.update_traces(diagonal_visible=False)
-        st.plotly_chart(fig5, use_container_width=True)
-        
-        # Show raw data
-        st.subheader("📋 Raw Data")
-        if st.checkbox("Show raw data"):
-            st.dataframe(df, use_container_width=True)
-
-elif page == "🔮 Prediction":
-    st.title("🔮 Alcohol Consumption Predictor")
-    st.markdown("---")
-    
-    if not model_loaded or not data_loaded:
-        missing = []
-        if not model_loaded:
-            missing.append("model")
-        if not data_loaded:
-            missing.append("data")
-        st.error(f"⚠️ {' and '.join(missing)} not loaded. Please check the files and refresh the page.")
-    else:
-        st.markdown("### Enter the details below to predict total alcohol consumption:")
-        
-        # Create input form
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📝 Numerical Inputs")
-            beer_servings = st.number_input("Beer Servings", min_value=0, max_value=500, value=200, step=1)
-            spirit_servings = st.number_input("Spirit Servings", min_value=0, max_value=500, value=100, step=1)
-            wine_servings = st.number_input("Wine Servings", min_value=0, max_value=500, value=100, step=1)
-        
-        with col2:
-            st.subheader("📍 Categorical Inputs")
-            
-            # Get unique countries and continents from data
-            countries = sorted(df['country'].unique())
-            continents = sorted(df['continent'].unique())
-            
-            selected_country = st.selectbox("Select Country", countries)
-            selected_continent = st.selectbox("Select Continent", continents)
-        
-        st.markdown("---")
+        # Distribute features across columns
+        for i, feature in enumerate(features):
+            with col1 if i % 2 == 0 else col2:
+                # Clean up feature name for display
+                display_name = feature.replace('_', ' ').title()
+                
+                # Get min/max from training data if available
+                # Default to reasonable ranges
+                input_values[feature] = st.number_input(
+                    f"{display_name}",
+                    min_value=0.0,
+                    max_value=1000.0,
+                    value=100.0,
+                    step=10.0,
+                    help=f"Enter the value for {display_name}"
+                )
         
         # Prediction button
-        if st.button("🚀 Predict Alcohol Consumption", type="primary", use_container_width=True):
-            # Create input dataframe
-            input_data = pd.DataFrame({
-                'country': [selected_country],
-                'beer_servings': [beer_servings],
-                'spirit_servings': [spirit_servings],
-                'wine_servings': [wine_servings],
-                'continent': [selected_continent]
-            })
-            
-            # Make prediction
+        if st.button("🔮 Predict Alcohol Consumption", type="primary", use_container_width=True):
             try:
-                prediction = model.predict(input_data)[0]
+                # Create dataframe with input values
+                input_df = pd.DataFrame([input_values])
+                
+                # Apply scaling if needed
+                if scaler:
+                    input_scaled = scaler.transform(input_df[features])
+                    prediction = model.predict(input_scaled)[0]
+                else:
+                    prediction = model.predict(input_df[features])[0]
                 
                 # Display prediction
-                st.markdown("### 🎯 Prediction Result")
+                st.balloons()
+                st.success("### Prediction Complete!")
                 
                 # Create metric display
                 col1, col2, col3 = st.columns(3)
                 with col2:
-                    st.metric("Predicted Total Alcohol Consumption", 
-                             f"{prediction:.2f} Liters",
-                             delta=None)
+                    st.metric(
+                        label="Predicted Total Alcohol Consumption",
+                        value=f"{prediction:.2f} litres",
+                        delta=f"R²: {model_score:.3f}"
+                    )
                 
-                # Show comparison with similar countries
-                st.markdown("### 📊 Comparison with Similar Countries")
-                
-                # Find countries with similar consumption patterns
-                similar_countries = df[
-                    (df['beer_servings'].between(beer_servings-50, beer_servings+50)) &
-                    (df['spirit_servings'].between(spirit_servings-50, spirit_servings+50)) &
-                    (df['wine_servings'].between(wine_servings-50, wine_servings+50))
-                ]
-                
-                if len(similar_countries) > 0:
-                    similar_countries = similar_countries[['country', 'beer_servings', 'spirit_servings', 
-                                                          'wine_servings', 'total_litres_of_pure_alcohol']]
-                    st.dataframe(similar_countries, use_container_width=True)
-                    
-                    # Show average of similar countries
-                    avg_similar = similar_countries['total_litres_of_pure_alcohol'].mean()
-                    st.info(f"Average alcohol consumption in similar countries: **{avg_similar:.2f} Liters**")
-                else:
-                    st.info("No directly comparable countries found in the dataset.")
-                
-                # Create gauge chart
+                # Visualization of prediction
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number",
                     value = prediction,
+                    title = {'text': "Litres of Pure Alcohol"},
                     domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "Predicted Alcohol Consumption (Liters)"},
                     gauge = {
-                        'axis': {'range': [None, df['total_litres_of_pure_alcohol'].max()]},
-                        'bar': {'color': "#ff4b4b"},
+                        'axis': {'range': [None, max(20, prediction*1.5)]},
+                        'bar': {'color': "#4CAF50"},
                         'steps': [
-                            {'range': [0, 5], 'color': "#98fb98"},
-                            {'range': [5, 10], 'color': "#ffffe0"},
-                            {'range': [10, 15], 'color': "#ffb6c1"}
+                            {'range': [0, 5], 'color': "#e8f5e8"},
+                            {'range': [5, 10], 'color': "#c8e6c9"},
+                            {'range': [10, 15], 'color': "#a5d6a7"}
                         ],
                         'threshold': {
                             'line': {'color': "red", 'width': 4},
@@ -231,69 +119,96 @@ elif page == "🔮 Prediction":
                     }
                 ))
                 
-                fig.update_layout(height=400)
+                fig.update_layout(height=300)
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Show input summary
+                with st.expander("📋 View Input Values"):
+                    st.json(input_values)
+                    
             except Exception as e:
-                st.error(f"Error making prediction: {str(e)}")
+                st.error(f"Prediction error: {e}")
+    else:
+        st.warning("Please train the model first by running model.py")
+        if st.button("Run Model Training Now"):
+            with st.spinner("Training models..."):
+                import subprocess
+                result = subprocess.run(["python", "model.py"], capture_output=True, text=True)
+                st.code(result.stdout)
+                st.success("Model training complete! Refresh the page to use the predictor.")
 
-elif page == "📈 Model Performance":
-    st.title("📈 Model Performance Metrics")
-    st.markdown("---")
+with tab2:
+    st.header("Data Explorer")
     
-    # Load model metrics from training
-    st.markdown("### Model Evaluation Results")
+    # Look for data file
+    data_file = None
+    possible_paths = ['data/beer-servings.csv', 'data/drinks.csv', 'beer-servings.csv', 'drinks.csv']
     
-    # Display metrics based on our training results
-    metrics_data = {
-        "Metric": ["Train R² Score", "Test R² Score", "Cross-Validation R²", "RMSE", "MAE"],
-        "Value": ["0.9521", "0.8943", "0.8876 ± 0.0214", "1.2345", "0.8765"]  # These are example values
-    }
+    for path in possible_paths:
+        if os.path.exists(path):
+            data_file = path
+            break
     
-    metrics_df = pd.DataFrame(metrics_data)
-    st.table(metrics_df)
-    
-    st.markdown("---")
-    
-    # Feature importance if available
-    try:
-        feat_imp = pd.read_csv('models/feature_importances.csv')
-        st.subheader("🔑 Feature Importance")
-        fig = px.bar(feat_imp.head(15), x='importance', y='feature',
-                     orientation='h', title='Top 15 Feature Importances',
-                     labels={'importance': 'Importance Score', 'feature': ''})
-        st.plotly_chart(fig, use_container_width=True)
-    except FileNotFoundError:
-        st.info("Feature importance data not available for this model.")
-    except Exception as e:
-        st.info(f"Could not load feature importance: {str(e)}")
-    
-    st.markdown("---")
-    
-    # Model information
-    st.subheader("ℹ️ Model Information")
+    if data_file:
+        df = pd.read_csv(data_file)
+        st.subheader("Dataset Overview")
+        st.dataframe(df.head(10))
+        
+        # Basic statistics
+        st.subheader("Statistics")
+        st.dataframe(df.describe())
+        
+        # Visualizations
+        st.subheader("Visualizations")
+        
+        # Select columns for plotting
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) >= 2:
+            col1, col2 = st.columns(2)
+            with col1:
+                x_axis = st.selectbox("X-axis", numeric_cols, index=0)
+            with col2:
+                y_axis = st.selectbox("Y-axis", numeric_cols, index=min(1, len(numeric_cols)-1))
+            
+            fig = px.scatter(df, x=x_axis, y=y_axis, title=f"{x_axis} vs {y_axis}")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Correlation heatmap
+            st.subheader("Correlation Matrix")
+            corr = df[numeric_cols].corr()
+            fig_corr = px.imshow(corr, text_auto=True, aspect="auto", color_continuous_scale="RdBu")
+            st.plotly_chart(fig_corr, use_container_width=True)
+    else:
+        st.info("No data file found. Please upload your dataset.")
+
+with tab3:
+    st.header("About This App")
     st.markdown("""
-    **Best Model:** Gradient Boosting Regressor
+    ### Alcohol Consumption Prediction Model
     
-    **Hyperparameters:**
-    - n_estimators: 200
-    - learning_rate: 0.1
-    - max_depth: 5
-    - random_state: 42
+    This application uses machine learning to predict total alcohol consumption based on:
+    - Beer servings
+    - Wine servings
+    - Spirit servings
+    - Other related factors
     
-    **Training Details:**
-    - Training samples: 154
-    - Test samples: 39
-    - Features used: Country, Continent, Beer Servings, Spirit Servings, Wine Servings
+    ### How it works:
+    1. The model is trained on historical alcohol consumption data
+    2. Multiple regression algorithms are compared
+    3. The best performing model is selected
+    4. You can input values to get real-time predictions
+    
+    ### Model Performance
+    The current best model achieves an R² score shown in the sidebar.
+    
+    ### Technologies Used
+    - **Streamlit** for the web interface
+    - **Scikit-learn** for machine learning
+    - **Pandas/NumPy** for data processing
+    - **Plotly** for visualizations
     """)
 
 # Footer
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center'>
-    <p>🍺 Alcohol Consumption Predictor | Developed with Streamlit</p>
-</div>
-""", unsafe_allow_html=True)
-
-
-
+st.markdown("👨‍💻 Built with Streamlit | 📊 Machine Learning Model | 🍺 Alcohol Consumption Predictor")
