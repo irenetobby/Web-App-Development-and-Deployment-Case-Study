@@ -29,20 +29,17 @@ print("\n" + "="*60)
 print("📂 LOCATING DATA FILE")
 print("="*60)
 
-# List of possible file names and paths to try
+# Look for the actual data file (from logs, it's beer-servings.csv)
+data_path = None
 possible_files = [
+    'data/beer-servings.csv',  # This is the actual file from your logs
     'data/drinks.csv',
-    'data/beer-servings.csv',
-    'data/alcohol.csv',
-    'drinks.csv',
     'beer-servings.csv',
-    './data/drinks.csv',
+    'drinks.csv',
     './data/beer-servings.csv',
-    '../data/drinks.csv',
-    '../data/beer-servings.csv'
+    './data/drinks.csv'
 ]
 
-data_path = None
 for file_path in possible_files:
     if os.path.exists(file_path):
         data_path = file_path
@@ -60,10 +57,6 @@ if data_path is None:
         print(f"\nFiles in data directory:")
         for f in os.listdir('data'):
             print(f"  - {f}")
-    else:
-        print(f"\n⚠️ 'data' directory not found, creating it...")
-        os.makedirs('data', exist_ok=True)
-        print(f"Please place your CSV file in the 'data' directory")
     sys.exit(1)
 
 # =============================================================================
@@ -110,7 +103,7 @@ print("🎯 IDENTIFYING TARGET COLUMN")
 print("="*60)
 
 # Look for alcohol-related columns
-alcohol_keywords = ['alcohol', 'total_litres', 'litres', 'pure_alcohol']
+alcohol_keywords = ['alcohol', 'total_litres', 'litres', 'pure_alcohol', 'servings']
 target_candidates = []
 
 for col in df.columns:
